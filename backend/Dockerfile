@@ -1,12 +1,18 @@
-FROM node:23-slim as build
+FROM node:18-alpine
+
 WORKDIR /app
 
-# Install MariaDB client
-RUN apt-get update && apt-get install -y mariadb-client && rm -rf /var/lib/apt/lists/*
-
 COPY package*.json ./
+COPY tsconfig.json ./
+COPY vite.config.ts ./
+
 RUN npm install
+RUN npm install wait-on -g
+
 COPY . .
+
 RUN npm run build
+
 EXPOSE 3000
+
 CMD ["npm", "start"]

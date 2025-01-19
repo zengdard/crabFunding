@@ -1,53 +1,94 @@
-import { DataTypes, Model, Optional } from 'sequelize';
-import sequelize from '../config/database';
-import { v4 as uuidv4 } from 'uuid';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, BeforeInsert, OneToMany, UpdateDateColumn } from "typeorm"
+import { Project } from "./project.model"
+import { Contribution } from "./contribution.model"
+import { Transaction } from "./transaction.model"
+import * as bcrypt from "bcryptjs"
 
-// Ces interfaces définissent la structure de votre modèle User
-interface UserAttributes {
-    id: string;
-    email: string;
-    password: string;
-    createdAt?: Date;
-    updatedAt?: Date;
-}
+@Entity()
+export class User {
+  @PrimaryGeneratedColumn('increment')
+  id!: number
 
-// Cette interface permet de rendre l'id optionnel lors de la création
-interface UserCreationAttributes extends Optional<UserAttributes, 'id'> {}
+  @Column({ type: 'varchar', unique: true })
+  username!: string
 
-class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
-    public id!: string;
-    public email!: string;
-    public password!: string;
-    public readonly createdAt!: Date;
-    public readonly updatedAt!: Date;
-}
+  @Column("varchar", { length: 255 })
+  email!: string
 
-User.init(
-    {
-        id: {
-            type: DataTypes.UUID,
-            defaultValue: () => uuidv4(),
-            primaryKey: true,
-        },
-        email: {
-            type: DataTypes.STRING,
-            allowNull: false,
-            unique: true,
-            validate: {
-                isEmail: true,
-            },
-        },
-        password: {
-            type: DataTypes.STRING,
-            allowNull: false,
-        },
-    },
-    {
-        sequelize,
-        modelName: 'User',
-        tableName: 'users',
-        timestamps: true,
+  @Column("varchar", { length: 255 })
+  password!: string
+
+  @Column("varchar", { length: 100 })
+  firstName!: string
+
+  @Column("varchar", { length: 100 })
+  lastName!: string
+
+  @Column("varchar", { length: 20, default: "user" })
+  role!: string
+
+  @Column("boolean", { default: false })
+  isVerified!: boolean
+
+  @Column("varchar", { length: 255, nullable: true })
+  verificationToken?: string
+
+  @Column("varchar", { length: 255, nullable: true })
+  resetPasswordToken?: string
+
+  @Column("timestamp", { nullable: true })
+  resetPasswordExpires?: Date
+
+  @Column({ type: 'varchar', nullable: true })
+  profile_image?: string
+
+  @Column({ default: false })
+  email_verified!: boolean
+
+  @Column({ default: false })
+  two_factor_enabled!: boolean
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  two_factor_secret?: string
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  reset_password_token?: string | null
+
+  @Column({ type: 'datetime', nullable: true })
+  reset_password_expires?: Date | null
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  verification_token?: string | null
+
+  @Column({ default: false })
+  is_verified!: boolean
+
+  @Column({ type: 'datetime', nullable: true })
+  last_login?: Date
+
+  @CreateDateColumn()
+  createdAt!: Date
+
+  @UpdateDateColumn()
+  updatedAt?: Date
+
+  @OneToMany(() => Project, project => project.creator)
+  projects!: Project[]
+
+  @OneToMany(() => Contribution, contribution => contribution.user)
+  contributions!: Contribution[]
+
+  @OneToMany(() => Transaction, transaction => transaction.user)
+  transactions!: Transaction[]
+
+  @BeforeInsert()
+  async hashPassword() {
+    if (this.password) {
+      this.password = await bcrypt.hash(this.password, 10)
     }
-);
+  }
 
-export default User;
+  async comparePassword(candidatePassword: string): Promise<boolean> {
+    return bcrypt.compare(candidatePassword, this.password)
+  }
+}

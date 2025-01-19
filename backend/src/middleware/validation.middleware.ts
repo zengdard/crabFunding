@@ -1,33 +1,44 @@
 import { Request, Response, NextFunction } from 'express';
-import { ApiError } from '../utils/ApiError';
+import { AnyZodObject, ZodError, z } from 'zod';
+import { registerSchema, loginSchema } from '../validations/auth.validation';
 
-interface ValidationSchema {
-    body?: Record<string, any>;
-    params?: Record<string, any>;
-    query?: Record<string, any>;
-}
+export const validateRequest = (schema: AnyZodObject) => 
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const validatedData = await schema.parseAsync({
+        body: req.body,
+        query: req.query,
+        params: req.params,
+      });
+      req.body = validatedData.body;
+      next();
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Validation error',
+          errors: error.errors
+        });
+      }
+      return res.status(500).json({
+        status: 'error',
+        message: 'Internal server error'
+      });
+    }
+  };
 
-export const validate = (schema: ValidationSchema) => {
-    return (req: Request, res: Response, next: NextFunction) => {
-        try {
-            if (schema.body) {
-                const { email, password } = req.body;
-                if (schema.body.email && !email) {
-                    throw new ApiError(400, 'Email is required');
-                }
-                if (schema.body.password && !password) {
-                    throw new ApiError(400, 'Password is required');
-                }
-                if (schema.body.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-                    throw new ApiError(400, 'Invalid email format');
-                }
-                if (schema.body.password?.minLength && password.length < schema.body.password.minLength) {
-                    throw new ApiError(400, `Password must be at least ${schema.body.password.minLength} characters long`);
-                }
-            }
-            next();
-        } catch (error) {
-            next(error);
-        }
-    };
-};
+// Formula validation schema
+const formulaSchema = z.object({
+  body: z.object({
+    title: z.string().min(1),
+    latex: z.string().min(1)
+  })
+});
+
+// Export validation middleware instances
+export const validateFormula = validateRequest(formulaSchema);
+export const validateRegister = validateRequest(registerSchema);
+export const validateLogin = validateRequest(loginSchema);
+
+// Re-export schemas for use elsewhere
+export { registerSchema, loginSchema };

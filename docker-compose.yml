@@ -1,115 +1,85 @@
+version: '3.8'
+
 services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+    restart: unless-stopped
+    environment:
+      - BACKEND_URL=http://localhost:3000
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
+      - CORS_ORIGIN=http://localhost
       - DB_HOST=mariadb
+      - DB_PORT=3306
       - DB_USER=root
-      - DB_PASSWORD=root_password
-      - DB_NAME=CroW
-      - JWT_SECRET=qirGzI+raJe9xYDLp6kV12Zr6FnpalRbs8Hu//DYYPZazmw64qtsmkgZkSry4++9
-      - FRONTEND_URL=http://localhost:5173
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - DB_PASSWORD=password
+      - DB_NAME=crowd
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key}
     ports:
       - "3000:3000"
     depends_on:
       mariadb:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: >
-      sh -c "
-        echo 'Waiting for database to be ready...'
-        until mysql -h mariadb -u root -proot_password -e 'USE CroW;' >/dev/null 2>&1; do
-          echo 'Waiting for database connection...'
-          sleep 2
-        done
-        echo 'Database is ready!'
-        npm start
-      "
-    restart: unless-stopped
+    command: sh -c "npm install && npm run build && npx wait-on tcp:mariadb:3306 && npm start"
     networks:
       - app-network
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - /app/dist
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   mariadb:
-    image: mariadb:latest
+    image: mariadb:11.6
+    command: --default-authentication-plugin=mysql_native_password
     environment:
-      MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_DATABASE: CroW
-      MYSQL_TCP_PORT: 3306
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: crowd
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
       MYSQL_ROOT_HOST: '%'
-    command:
-      - --default-authentication-plugin=mysql_native_password
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
+      MARIADB_AUTO_UPGRADE: "1"
+      MARIADB_CHARACTER_SET_SERVER: utf8mb4
+      MARIADB_COLLATION_SERVER: utf8mb4_unicode_ci
     volumes:
       - mariadb_data:/var/lib/mysql
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./backend/init-scripts:/docker-entrypoint-initdb.d
     ports:
       - "3306:3306"
     healthcheck:
-      test: ["CMD", "mariadb", "-u", "root", "--password=root_password", "-e", "SELECT 1"]
-      interval: 5s
+      test: ["CMD", "mariadb", "-uroot", "-ppassword", "-e", "SELECT 1"]
+      interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 30s
-    restart: unless-stopped
-    networks:
-      app-network:
-        aliases:
-          - database
-
-  redis:
-    image: redis:alpine
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
       retries: 3
-      start_period: 10s
-    volumes:
-      - redis_data:/data
-    restart: unless-stopped
+      start_period: 30s
     networks:
       - app-network
-
-  mobile:
-    image: instrumentisto/flutter:latest
-    volumes:
-      - ./mobile:/app
-      - flutter_cache:/root/.pub-cache
-      - flutter_build:/app/build
-    ports:
-      - "8080:8080"
-      - "42000:42000"
-    environment:
-      - BACKEND_URL=http://backend:3000
-    working_dir: /app
-    depends_on:
-      - backend
-    command: >
-      sh -c "
-        echo 'Starting Flutter development server...' &&
-        flutter config --no-analytics &&
-        flutter pub get &&
-        flutter run -d web-server --web-port=8080 --web-hostname=0.0.0.0
-      "
-    tty: true
-    stdin_open: true
-    networks:
-      - app-network
-
-volumes:
-  mariadb_data:
-  redis_data:
-  flutter_cache:
-  flutter_build:
 
 networks:
   app-network:
     driver: bridge
+
+volumes:
+  mariadb_data:
+    driver: local
+  backend_node_modules:
+    driver: local

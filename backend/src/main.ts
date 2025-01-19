@@ -1,65 +1,88 @@
-// src/main.ts
+import 'reflect-metadata';
+import { Reward } from './models/reward.model';
+// Import des routes
 
+import authRoutes from './routes/auth.routes';
+import projectRoutes from './routes/project.routes';
+import contributionRoutes from './routes/contribution.routes';
+import commentRoutes from './routes/comment.routes';
+// backend/src/server.ts
+import "reflect-metadata"
 import express from 'express';
 import cors from 'cors';
-import authRoutes from './routes/auth.routes';
-import optionRoutes from './routes/option.routes';
+import cookieParser from 'cookie-parser';
+import { config } from './config/config';
+import { initializeDB } from './config/database';
 import { errorHandler } from './middleware/error.middleware';
-import sequelize from './config/database';
+import { configureSecurityMiddleware } from './middleware/security.middleware';
+import { databaseCheckMiddleware } from './middleware/database-check.middleware';
 
 const app = express();
 
-// Middleware globaux
-app.use(cors());
+// Body parsing middleware - move before routes
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// Configuration CORS - move this before other middleware
+app.use(cors({
+  origin: ['http://localhost', 'http://localhost:80'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+  exposedHeaders: ['Access-Control-Allow-Origin'],
+  optionsSuccessStatus: 200
+}));
+
+// Handle preflight requests
+app.options('*', cors());
+
+// Configuration de la sécurité
+configureSecurityMiddleware(app);
+
+// Add after express initialization and before routes
+app.use(databaseCheckMiddleware);
 
 // Routes
+// Support both /api prefix and direct paths for backwards compatibility
+app.use('/auth', authRoutes);
 app.use('/api/auth', authRoutes);
-app.use('/api/options', optionRoutes);
+app.use('/projects', projectRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/contributions', contributionRoutes);
+app.use('/api/contributions', contributionRoutes);
+app.use('/comments', commentRoutes);
+app.use('/api/comments', commentRoutes);
 
-// Route de test/santé
+// Add health check endpoint
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date() });
+  res.status(200).json({ status: 'ok' });
 });
 
-// Gestion des erreurs
+// Error handling
 app.use(errorHandler);
 
-// Gestion des routes non trouvées
-app.use((req, res) => {
-    res.status(404).json({ message: 'Route not found' });
+// 404 handler
+app.use('*', (req, res) => {
+  res.status(404).json({
+    status: 'error',
+    message: `Route ${req.originalUrl} not found`
+  });
 });
 
-// Fonction de démarrage
-async function start() {
-    try {
-        await sequelize.authenticate();
-        console.log('Database connection established successfully.');
-        
-        const port = process.env.PORT || 3000;
-        app.listen(port, () => {
-            console.log(`Server is running on port ${port}`);
-        });
-    } catch (error) {
-        console.error('Unable to start server:', error);
-        process.exit(1);
-    }
-}
-
-// Démarrage du serveur si ce n'est pas un test
-if (process.env.NODE_ENV !== 'test') {
-    start();
-}
-
-// Export pour les tests
-export default app;
-
-// Gestion des erreurs non capturées
-process.on('unhandledRejection', (error) => {
-    console.error('Unhandled Rejection:', error);
-});
-
-process.on('uncaughtException', (error) => {
-    console.error('Uncaught Exception:', error);
+// Start server
+const startServer = async () => {
+  try {
+    await initializeDB();
+    app.listen(config.port, () => {
+      console.log(`Server is running on port ${config.port}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
     process.exit(1);
-});
+  }
+};
+
+startServer();
+
+export default app;
