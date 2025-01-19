@@ -69,8 +69,8 @@ Ce projet est une plateforme de **crowdfunding** conçue pour permettre aux util
 
 ### Étape 1 : Clonez le projet
 ```bash
-git clone https://github.com/username/crowdfunding-platform.git
-cd crowdfunding-platform
+git clone https://github.com/zengdard/crabFunding.git
+cd crabFunding
 ```
 ### Étape 2 : Installez les dépendances
 npm install
@@ -83,14 +83,30 @@ Créez un fichier .env et configurez les variables suivantes :
 - DB_NAME=crowdfunding
 - JWT_SECRET=your_jwt_secret
 - STRIPE_API_KEY=your_stripe_api_key
-- PAYPAL_CLIENT_ID=your_paypal_client_id
 
-### Étape 4 : Initialisez la base de données
-npm run migrate
 
-### Étape 5 : Lancez le serveur
-npm start
-- Le serveur sera disponible à http://localhost:3000.
+### Étape 4 :  Lancez le serveur
+
+```bash
+# Voir les logs des containers
+docker-compose logs -f
+
+# Arrêter tous les containers
+docker-compose down
+
+# Reconstruire les images
+docker-compose build
+
+# Accéder au shell d'un container
+docker-compose exec backend sh
+docker-compose exec frontend sh
+docker-compose exec mariadb mariadb -uroot -ppassword
+
+# Vérifier l'état des containers
+docker-compose ps
+```
+
+- Le serveur sera disponible à http://localhost
 
 ### Fonctionnalités principales à tester
 - Créer un compte utilisateur.
