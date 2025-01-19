@@ -1,0 +1,10 @@
+FROM instrumentisto/flutter:latest
+
+WORKDIR /app
+
+# Configuration minimale pour le développement
+RUN flutter config --no-analytics
+RUN flutter doctor
+
+EXPOSE 8080
+CMD ["flutter", "run", "--web-port", "8080", "--web-hostname", "0.0.0.0"]

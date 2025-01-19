@@ -1,0 +1,23 @@
+services:
+  flutter_web:
+    image: instrumentisto/flutter:latest
+    volumes:
+      - .:/app
+      - pub_cache:/root/.pub-cache
+    ports:
+      - "8080:8080"
+      - "35729:35729"
+    environment:
+      - BACKEND_URL=http://localhost:3000
+    working_dir: /app
+    command: >
+      /bin/sh -c "
+        flutter pub get &&
+        flutter config --enable-web &&
+        flutter run -d web-server --web-renderer html --web-port=8080 --web-hostname=0.0.0.0
+      "
+    tty: true
+    stdin_open: true
+
+volumes:
+  pub_cache:

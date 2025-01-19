@@ -1,0 +1,115 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=mariadb
+      - DB_USER=root
+      - DB_PASSWORD=root_password
+      - DB_NAME=CroW
+      - JWT_SECRET=qirGzI+raJe9xYDLp6kV12Zr6FnpalRbs8Hu//DYYPZazmw64qtsmkgZkSry4++9
+      - FRONTEND_URL=http://localhost:5173
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    ports:
+      - "3000:3000"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo 'Waiting for database to be ready...'
+        until mysql -h mariadb -u root -proot_password -e 'USE CroW;' >/dev/null 2>&1; do
+          echo 'Waiting for database connection...'
+          sleep 2
+        done
+        echo 'Database is ready!'
+        npm start
+      "
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  mariadb:
+    image: mariadb:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: CroW
+      MYSQL_TCP_PORT: 3306
+      MYSQL_ROOT_HOST: '%'
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mariadb", "-u", "root", "--password=root_password", "-e", "SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      app-network:
+        aliases:
+          - database
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  mobile:
+    image: instrumentisto/flutter:latest
+    volumes:
+      - ./mobile:/app
+      - flutter_cache:/root/.pub-cache
+      - flutter_build:/app/build
+    ports:
+      - "8080:8080"
+      - "42000:42000"
+    environment:
+      - BACKEND_URL=http://backend:3000
+    working_dir: /app
+    depends_on:
+      - backend
+    command: >
+      sh -c "
+        echo 'Starting Flutter development server...' &&
+        flutter config --no-analytics &&
+        flutter pub get &&
+        flutter run -d web-server --web-port=8080 --web-hostname=0.0.0.0
+      "
+    tty: true
+    stdin_open: true
+    networks:
+      - app-network
+
+volumes:
+  mariadb_data:
+  redis_data:
+  flutter_cache:
+  flutter_build:
+
+networks:
+  app-network:
+    driver: bridge

@@ -1,0 +1,11 @@
+{
+  "name": "crowd-mobile",
+  "version": "1.0.0",
+  "scripts": {
+    "docker:dev": "docker-compose -f docker-compose.flutter.yml up",
+    "docker:dev:build": "docker-compose -f docker-compose.flutter.yml up --build",
+    "docker:dev:clean": "docker-compose -f docker-compose.flutter.yml down -v",
+    "docker:get": "docker-compose -f docker-compose.flutter.yml exec flutter_web flutter pub get",
+    "docker:clean": "docker-compose -f docker-compose.flutter.yml exec flutter_web flutter clean"
+  }
+}

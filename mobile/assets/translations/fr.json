@@ -1,0 +1,20 @@
+{
+  "app": {
+    "title": "CroW Options",
+    "loading": "Chargement..."
+  },
+  "auth": {
+    "login": "Connexion",
+    "register": "Inscription",
+    "email": "Email",
+    "password": "Mot de passe",
+    "login_button": "Se connecter",
+    "register_button": "Créer un compte"
+  },
+  "options": {
+    "analysis": "Analyse d'Options",
+    "symbol": "Symbole du Stock",
+    "analyze": "Analyser",
+    "no_data": "Aucune donnée"
+  }
+} 

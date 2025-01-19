@@ -1,0 +1,18 @@
+services:
+  flutter_dev:
+    image: instrumentisto/flutter:latest
+    volumes:
+      - .:/app
+      - flutter_deps:/root/.pub-cache
+    ports:
+      - "8080:8080"
+      - "35729:35729"
+    environment:
+      - FLUTTER_WEB_PORT=8080
+      - FLUTTER_WEB_HOST=0.0.0.0
+    working_dir: /app
+    stdin_open: true
+    tty: true
+
+volumes:
+  flutter_deps:
